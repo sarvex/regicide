@@ -149,6 +149,20 @@ pub fn mat4x4_ortho(left: f32, right: f32, bottom: f32, top: f32) -> Mat4x4 {
     m
 }
 
+pub struct Vec2 {
+    data: [2]f32,
+
+    pub fn x(self: &const Vec2) -> f32 { self.data[0] }
+    pub fn y(self: &const Vec2) -> f32 { self.data[1] }
+}
+
+pub fn vec2(x: f32, y: f32) -> Vec2 {
+    Vec2 {
+        .data = []f32 { x, y, },
+    }
+}
+
+
 pub struct Vec3 {
     data: [3]f32,
 
