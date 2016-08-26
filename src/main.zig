@@ -38,6 +38,7 @@ enum PlayerKind {
 struct Player {
     kind: PlayerKind,
     pos: Vec2,
+    vel: Vec2,
     size: Vec2,
     alive: bool,
 }
@@ -51,6 +52,11 @@ const player_kind_sizes = []Vec2 {
 
 // TODO 10
 const player_count = 1;
+const fps = 60.0;
+const spf = 1.0 / fps;
+const gravity_accel = 10.0; // in pixels per second squared
+const gravity_vec = math3d.vec2(0.0, gravity_accel * spf);
+const y_vel_max = 10.0; // in pixels per second
 
 const day_map = KqMap {
     .name = "Day Map",
@@ -183,27 +189,40 @@ export fn main(argc: c_int, argv: &&u8) -> c_int {
 
     while (c.glfwWindowShouldClose(window) == c.GL_FALSE) {
         c.glClear(c.GL_COLOR_BUFFER_BIT|c.GL_DEPTH_BUFFER_BIT|c.GL_STENCIL_BUFFER_BIT);
-
-        fillGradient(kq, &kq.cur_map.bg_top_color, &kq.cur_map.bg_bottom_color, 0, 0, kq.width, kq.height);
-
-        if (debug_draw_platforms) {
-            for (kq.cur_map.platforms) |*platform| {
-                fillRect(kq, &debug_platform_color, platform.left, platform.top, platform.width, platform.height);
-            }
-        }
-
-        for (kq.players) |*player| {
-            fillRect(kq, &debug_player_color, player.pos.x(), player.pos.y(), player.size.x(), player.size.y());
-        }
-
+        nextFrame(kq);
+        drawState(kq);
         c.glfwSwapBuffers(window);
-
         c.glfwPollEvents();
     }
 
     debug_gl.assertNoError();
 
     return 0;
+}
+
+fn nextFrame(kq: &KillerQueen) {
+    for (kq.players) |*player| {
+        player.pos = player.pos.add(player.vel);
+
+        player.vel = player.vel.add(gravity_vec);
+        if (player.vel.y() > y_vel_max) {
+            player.vel.setY(y_vel_max);
+        }
+    }
+}
+
+fn drawState(kq: &KillerQueen) {
+    fillGradient(kq, &kq.cur_map.bg_top_color, &kq.cur_map.bg_bottom_color, 0, 0, kq.width, kq.height);
+
+    if (debug_draw_platforms) {
+        for (kq.cur_map.platforms) |*platform| {
+            fillRect(kq, &debug_platform_color, platform.left, platform.top, platform.width, platform.height);
+        }
+    }
+
+    for (kq.players) |*player| {
+        fillRect(kq, &debug_player_color, player.pos.x(), player.pos.y(), player.size.x(), player.size.y());
+    }
 }
 
 fn fillGradientMvp(kq: &KillerQueen, top_color: &const Vec4, bottom_color: &const Vec4, mvp: &const Mat4x4) {
@@ -247,6 +266,7 @@ fn resetMap(kq: &KillerQueen, map: &const KqMap) {
             .alive = true,
             .kind = PlayerKind.Queen,
             .pos = math3d.vec2(200.0, 200.0),
+            .vel = math3d.vec2(0.0, 0.0),
             .size = player_kind_sizes[usize(player.kind)],
         };
     }

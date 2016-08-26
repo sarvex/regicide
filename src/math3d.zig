@@ -154,6 +154,18 @@ pub struct Vec2 {
 
     pub fn x(self: &const Vec2) -> f32 { self.data[0] }
     pub fn y(self: &const Vec2) -> f32 { self.data[1] }
+
+    pub fn setX(self: &Vec2, value: f32) { self.data[0] = value; }
+    pub fn setY(self: &Vec2, value: f32) { self.data[1] = value; }
+
+    pub fn add(v: Vec2, other: Vec2) -> Vec2 {
+        Vec2 {
+            .data = []f32 {
+                v.data[0] + other.data[0],
+                v.data[1] + other.data[1],
+            },
+        }
+    }
 }
 
 pub fn vec2(x: f32, y: f32) -> Vec2 {
