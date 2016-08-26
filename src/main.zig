@@ -35,12 +35,32 @@ enum PlayerKind {
     Queen,
 }
 
+enum Input {
+    Left,
+    Right,
+    Jump,
+    Down,
+}
+
+const inputs_reset = []bool{false} ** @memberCount(Input);
+
 struct Player {
     kind: PlayerKind,
     pos: Vec2,
     vel: Vec2,
     size: Vec2,
     alive: bool,
+    inputs: [@memberCount(Input)]bool,
+    inputs_last: [@memberCount(Input)]bool,
+
+    fn pressing(self: &const Player, input: Input) -> bool {
+        self.inputs[usize(input)]
+    }
+
+    fn pressedOnce(self: &const Player, input: Input) -> bool {
+        const index = usize(input);
+        return self.inputs[index] && !self.inputs_last[index];
+    }
 }
 
 // TODO initialize with enum values as array indexes
@@ -55,8 +75,11 @@ const player_count = 1;
 const fps = 60.0;
 const spf = 1.0 / fps;
 const gravity_accel = 10.0; // in pixels per second squared
-const gravity_vec = math3d.vec2(0.0, gravity_accel * spf);
+const move_accel = 20.0; // in pixels per second squared
 const y_vel_max = 10.0; // in pixels per second
+const x_vel_min = -10.0; // in pixels per second
+const x_vel_max = 10.0; // in pixels per second
+const flap_power = 5.0;
 
 const day_map = KqMap {
     .name = "Day Map",
@@ -107,17 +130,21 @@ struct KillerQueen {
     players: [player_count]Player,
 }
 
-extern fn error_callback(err: c_int, description: ?&const u8) {
+extern fn errorCallback(err: c_int, description: ?&const u8) {
     c.fprintf(c.stderr, c"Error: %s\n", description);
     c.abort();
 }
 
-extern fn key_callback(window: ?&c.GLFWwindow, key: c_int, scancode: c_int, action: c_int, mods: c_int) {
-    if (action != c.GLFW_PRESS) return;
+extern fn keyCallback(window: ?&c.GLFWwindow, key: c_int, scancode: c_int, action: c_int, mods: c_int) {
     const kq = (&KillerQueen)(??c.glfwGetWindowUserPointer(window));
-
+    const press = action == c.GLFW_PRESS;
     switch (key) {
         c.GLFW_KEY_ESCAPE => c.glfwSetWindowShouldClose(window, c.GL_TRUE),
+        c.GLFW_KEY_A => playerInput(&kq.players[0], Input.Left, press),
+        c.GLFW_KEY_D => playerInput(&kq.players[0], Input.Right, press),
+        c.GLFW_KEY_J => playerInput(&kq.players[0], Input.Jump, press),
+        c.GLFW_KEY_S => playerInput(&kq.players[0], Input.Down, press),
+
         else => {},
     }
 }
@@ -125,7 +152,7 @@ extern fn key_callback(window: ?&c.GLFWwindow, key: c_int, scancode: c_int, acti
 var kq_state: KillerQueen = undefined;
 
 export fn main(argc: c_int, argv: &&u8) -> c_int {
-    c.glfwSetErrorCallback(error_callback);
+    c.glfwSetErrorCallback(errorCallback);
 
     if (c.glfwInit() == c.GL_FALSE) {
         c.fprintf(c.stderr, c"GLFW init failure\n");
@@ -151,7 +178,7 @@ export fn main(argc: c_int, argv: &&u8) -> c_int {
     };
     defer c.glfwDestroyWindow(window);
 
-    c.glfwSetKeyCallback(window, key_callback);
+    c.glfwSetKeyCallback(window, keyCallback);
     c.glfwMakeContextCurrent(window);
     c.glfwSwapInterval(1);
 
@@ -173,7 +200,7 @@ export fn main(argc: c_int, argv: &&u8) -> c_int {
     c.glPixelStorei(c.GL_UNPACK_ALIGNMENT, 1);
 
     c.glViewport(0, 0, kq.framebuffer_width, kq.framebuffer_height);
-    c.glfwSetWindowUserPointer(window, (&c_void)(&kq));
+    c.glfwSetWindowUserPointer(window, (&c_void)(kq));
 
     all_shaders.createAllShaders(&kq.shaders);
     defer kq.shaders.destroy();
@@ -202,12 +229,28 @@ export fn main(argc: c_int, argv: &&u8) -> c_int {
 
 fn nextFrame(kq: &KillerQueen) {
     for (kq.players) |*player| {
+
         player.pos = player.pos.add(player.vel);
 
-        player.vel = player.vel.add(gravity_vec);
-        if (player.vel.y() > y_vel_max) {
-            player.vel.setY(y_vel_max);
+        player.vel.data[1] += gravity_accel * spf;
+
+        if (player.pressing(Input.Left) && !player.pressing(Input.Right)) {
+            player.vel.data[0] -= move_accel * spf;
+        } else if (player.pressing(Input.Right) && !player.pressing(Input.Left)) {
+            player.vel.data[0] += move_accel * spf;
         }
+
+        if (player.vel.data[1] > y_vel_max) {
+            player.vel.data[1] = y_vel_max;
+        }
+        if (player.vel.data[0] > x_vel_max) {
+            player.vel.data[0] = x_vel_max;
+        }
+        if (player.vel.data[0] < x_vel_min) {
+            player.vel.data[0] = x_vel_min;
+        }
+
+        player.inputs_last = player.inputs;
     }
 }
 
@@ -268,6 +311,16 @@ fn resetMap(kq: &KillerQueen, map: &const KqMap) {
             .pos = math3d.vec2(200.0, 200.0),
             .vel = math3d.vec2(0.0, 0.0),
             .size = player_kind_sizes[usize(player.kind)],
+            .inputs = inputs_reset,
+            .inputs_last = inputs_reset,
         };
+    }
+}
+
+fn playerInput(player: &Player, input: Input, down: bool) {
+    player.inputs[usize(input)] = down;
+
+    if (input == Input.Jump && down) {
+        player.vel.setY(player.vel.y() - flap_power);
     }
 }
