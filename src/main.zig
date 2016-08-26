@@ -8,6 +8,40 @@ const Vec4 = math3d.Vec4;
 const Mat4x4 = math3d.Mat4x4;
 const static_geometry = @import("static_geometry.zig");
 
+struct Platform {
+    left: f32,
+    top: f32,
+    width: f32,
+    height: f32,
+    corner_radius: f32,
+}
+
+struct KqMap {
+    name: []u8,
+    bg_top_color: Vec4,
+    bg_bottom_color: Vec4,
+    platforms: []Platform,
+}
+
+const default_corner_radius = 4.0;
+const debug_draw_platforms = !@compileVar("is_release");
+const debug_platform_color = math3d.vec4(96.0/255.0, 71.0/255.0, 0.0/255.0, 1.0);
+
+const day_map = KqMap {
+    .name = "Day Map",
+    .bg_top_color = math3d.vec4(16.0/255.0, 149.0/255.0, 220.0/255.0, 1.0),
+    .bg_bottom_color = math3d.vec4(97.0/255.0, 198.0/255.0, 217.0/255.0, 1.0),
+    .platforms = []Platform {
+        Platform {
+            .left = 100.0,
+            .top = 100.0,
+            .width = 100.0,
+            .height = 100.0,
+            .corner_radius = default_corner_radius,
+        },
+    },
+};
+
 struct KillerQueen {
     window: &c.GLFWwindow,
     framebuffer_width: c_int,
@@ -17,6 +51,7 @@ struct KillerQueen {
     shaders: all_shaders.AllShaders,
     projection: Mat4x4,
     static_geometry: static_geometry.StaticGeometry,
+    cur_map: KqMap,
 }
 
 extern fn error_callback(err: c_int, description: ?&const u8) {
@@ -95,14 +130,20 @@ export fn main(argc: c_int, argv: &&u8) -> c_int {
 
     resetProjection(kq);
 
+    kq.cur_map = day_map;
+
     debug_gl.assertNoError();
 
     while (c.glfwWindowShouldClose(window) == c.GL_FALSE) {
         c.glClear(c.GL_COLOR_BUFFER_BIT|c.GL_DEPTH_BUFFER_BIT|c.GL_STENCIL_BUFFER_BIT);
 
-        const day_map_bg_top = math3d.vec4(16.0/255.0, 149.0/255.0, 220.0/255.0, 1.0);
-        const day_map_bg_bottom = math3d.vec4(97.0/255.0, 198.0/255.0, 217.0/255.0, 1.0);
-        fillGradient(kq, &day_map_bg_top, &day_map_bg_bottom, 0, 0, kq.width, kq.height);
+        fillGradient(kq, &kq.cur_map.bg_top_color, &kq.cur_map.bg_bottom_color, 0, 0, kq.width, kq.height);
+
+        if (debug_draw_platforms) {
+            for (kq.cur_map.platforms) |*platform| {
+                fillRect(kq, &debug_platform_color, platform.left, platform.top, platform.width, platform.height);
+            }
+        }
 
         c.glfwSwapBuffers(window);
 
