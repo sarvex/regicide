@@ -44,8 +44,8 @@ export fn main(argc: c_int, argv: &&u8) -> c_int {
     c.glfwWindowHint(c.GLFW_RESIZABLE, c.GL_FALSE);
 
 
-    const window_width = 800;
-    const window_height = 600;
+    const window_width = 1920;
+    const window_height = 1080;
     const window = c.glfwCreateWindow(window_width, window_height, c"Killer Queen", null, null) ?? {
         c.fprintf(c.stderr, c"unable to create window\n");
         c.abort();
