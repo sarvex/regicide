@@ -265,7 +265,7 @@ fn drawState(kq: &KillerQueen) {
     }
 
     for (kq.players) |*player| {
-        fillRect(kq, &debug_player_color, player.pos.x(), player.pos.y(), player.size.x(), player.size.y());
+        fillRectWrap(kq, &debug_player_color, player.pos.x(), player.pos.y(), player.size.x(), player.size.y());
     }
 }
 
@@ -288,6 +288,16 @@ fn fillGradient(kq: &KillerQueen, top_color: &const Vec4, bottom_color: &const V
     const model = math3d.mat4x4_identity.translate(x, y, 0.0).scale(w, h, 0.0);
     const mvp = kq.projection.mult(model);
     fillGradientMvp(kq, top_color, bottom_color, &mvp)
+}
+
+fn fillRectWrap(kq: &KillerQueen, color: &const Vec4, x: f32, y: f32, w: f32, h: f32) {
+    fillRect(kq, color, x, y, w, h);
+    if (x + w >= kq.width) {
+        fillRect(kq, color, x - kq.width, y, w, h);
+    }
+    if (y + h >= kq.height) {
+        fillRect(kq, color, x, y - kq.height, w, h);
+    }
 }
 
 fn fillRect(kq: &KillerQueen, color: &const Vec4, x: f32, y: f32, w: f32, h: f32) {
