@@ -229,8 +229,9 @@ export fn main(argc: c_int, argv: &&u8) -> c_int {
 
 fn nextFrame(kq: &KillerQueen) {
     for (kq.players) |*player| {
+        player.pos.data[0] = euclideanMod(player.pos.data[0] + player.vel.data[0], kq.width);
+        player.pos.data[1] = euclideanMod(player.pos.data[1] + player.vel.data[1], kq.height);
 
-        player.pos = player.pos.add(player.vel);
 
         player.vel.data[1] += gravity_accel * spf;
 
@@ -322,5 +323,13 @@ fn playerInput(player: &Player, input: Input, down: bool) {
 
     if (input == Input.Jump && down) {
         player.vel.setY(player.vel.y() - flap_power);
+    }
+}
+
+fn euclideanMod(x: f32, base: f32) -> f32 {
+    if (x < 0) {
+        (x % base + base) % base
+    } else {
+        x % base
     }
 }
