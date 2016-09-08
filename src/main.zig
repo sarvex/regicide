@@ -106,7 +106,7 @@ const day_map = KqMap {
     },
 };
 
-struct KillerQueen {
+struct Regicide {
     window: &c.GLFWwindow,
     framebuffer_width: c_int,
     framebuffer_height: c_int,
@@ -124,20 +124,20 @@ extern fn errorCallback(err: c_int, description: ?&const u8) {
 }
 
 extern fn keyCallback(window: ?&c.GLFWwindow, key: c_int, scancode: c_int, action: c_int, mods: c_int) {
-    const kq = (&KillerQueen)(??c.glfwGetWindowUserPointer(window));
+    const reg = (&Regicide)(??c.glfwGetWindowUserPointer(window));
     const press = action == c.GLFW_PRESS;
     switch (key) {
         c.GLFW_KEY_ESCAPE => c.glfwSetWindowShouldClose(window, c.GL_TRUE),
-        c.GLFW_KEY_A => playerInput(&kq.players[0], Input.Left, press),
-        c.GLFW_KEY_D => playerInput(&kq.players[0], Input.Right, press),
-        c.GLFW_KEY_J => playerInput(&kq.players[0], Input.Jump, press),
-        c.GLFW_KEY_S => playerInput(&kq.players[0], Input.Down, press),
+        c.GLFW_KEY_A => playerInput(&reg.players[0], Input.Left, press),
+        c.GLFW_KEY_D => playerInput(&reg.players[0], Input.Right, press),
+        c.GLFW_KEY_J => playerInput(&reg.players[0], Input.Jump, press),
+        c.GLFW_KEY_S => playerInput(&reg.players[0], Input.Down, press),
 
         else => {},
     }
 }
 
-var kq_state: KillerQueen = undefined;
+var kq_state: Regicide = undefined;
 
 export fn main(argc: c_int, argv: &&u8) -> c_int {
     c.glfwSetErrorCallback(errorCallback);
@@ -160,7 +160,7 @@ export fn main(argc: c_int, argv: &&u8) -> c_int {
 
     const window_width = 1920;
     const window_height = 1080;
-    const window = c.glfwCreateWindow(window_width, window_height, c"Killer Queen", null, null) ?? {
+    const window = c.glfwCreateWindow(window_width, window_height, c"Regicide", null, null) ?? {
         c.fprintf(c.stderr, c"unable to create window\n");
         c.abort();
     };
@@ -177,34 +177,34 @@ export fn main(argc: c_int, argv: &&u8) -> c_int {
     c.glBindVertexArray(vertex_array_object);
     defer c.glDeleteVertexArrays(1, &vertex_array_object);
 
-    const kq = &kq_state;
-    c.glfwGetFramebufferSize(window, &kq.framebuffer_width, &kq.framebuffer_height);
-    kq.size = math3d.vec2(f32(kq.framebuffer_width), f32(kq.framebuffer_height));
+    const reg = &kq_state;
+    c.glfwGetFramebufferSize(window, &reg.framebuffer_width, &reg.framebuffer_height);
+    reg.size = math3d.vec2(f32(reg.framebuffer_width), f32(reg.framebuffer_height));
 
     c.glClearColor(0.0, 0.0, 0.0, 1.0);
     c.glEnable(c.GL_BLEND);
     c.glBlendFunc(c.GL_SRC_ALPHA, c.GL_ONE_MINUS_SRC_ALPHA);
     c.glPixelStorei(c.GL_UNPACK_ALIGNMENT, 1);
 
-    c.glViewport(0, 0, kq.framebuffer_width, kq.framebuffer_height);
-    c.glfwSetWindowUserPointer(window, (&c_void)(kq));
+    c.glViewport(0, 0, reg.framebuffer_width, reg.framebuffer_height);
+    c.glfwSetWindowUserPointer(window, (&c_void)(reg));
 
-    all_shaders.createAllShaders(&kq.shaders);
-    defer kq.shaders.destroy();
+    all_shaders.createAllShaders(&reg.shaders);
+    defer reg.shaders.destroy();
 
-    kq.static_geometry = static_geometry.createStaticGeometry();
-    defer kq.static_geometry.destroy();
+    reg.static_geometry = static_geometry.createStaticGeometry();
+    defer reg.static_geometry.destroy();
 
-    resetProjection(kq);
+    resetProjection(reg);
 
-    resetMap(kq, &day_map);
+    resetMap(reg, &day_map);
 
     debug_gl.assertNoError();
 
     while (c.glfwWindowShouldClose(window) == c.GL_FALSE) {
         c.glClear(c.GL_COLOR_BUFFER_BIT|c.GL_DEPTH_BUFFER_BIT|c.GL_STENCIL_BUFFER_BIT);
-        nextFrame(kq);
-        drawState(kq);
+        nextFrame(reg);
+        drawState(reg);
         c.glfwSwapBuffers(window);
         c.glfwPollEvents();
     }
@@ -214,9 +214,9 @@ export fn main(argc: c_int, argv: &&u8) -> c_int {
     return 0;
 }
 
-fn nextFrame(kq: &KillerQueen) {
-    for (kq.players) |*player| {
-        player.hitbox.center = euclideanModVec2(player.hitbox.center.plus(player.vel), kq.size);
+fn nextFrame(reg: &Regicide) {
+    for (reg.players) |*player| {
+        player.hitbox.center = euclideanModVec2(player.hitbox.center.plus(player.vel), reg.size);
 
         player.vel.data[1] += gravity_accel * spf;
 
@@ -240,75 +240,75 @@ fn nextFrame(kq: &KillerQueen) {
     }
 }
 
-fn drawState(kq: &KillerQueen) {
-    fillGradient(kq, &kq.cur_map.bg_top_color, &kq.cur_map.bg_bottom_color, 0, 0, kq.size.x(), kq.size.y());
+fn drawState(reg: &Regicide) {
+    fillGradient(reg, &reg.cur_map.bg_top_color, &reg.cur_map.bg_bottom_color, 0, 0, reg.size.x(), reg.size.y());
 
     if (debug_draw_platforms) {
-        for (kq.cur_map.platforms) |*platform| {
-            drawPillShape(kq, &debug_platform_color, &platform.hitbox);
+        for (reg.cur_map.platforms) |*platform| {
+            drawPillShape(reg, &debug_platform_color, &platform.hitbox);
         }
     }
 
-    for (kq.players) |*player| {
-        drawPillShape(kq, &debug_player_color, &player.hitbox);
+    for (reg.players) |*player| {
+        drawPillShape(reg, &debug_player_color, &player.hitbox);
     }
 }
 
-fn fillGradientMvp(kq: &KillerQueen, top_color: &const Vec4, bottom_color: &const Vec4, mvp: &const Mat4x4) {
-    kq.shaders.gradient.bind();
-    kq.shaders.gradient.setUniformVec4(kq.shaders.gradient_uniform_color_top, top_color);
-    kq.shaders.gradient.setUniformVec4(kq.shaders.gradient_uniform_color_bottom, bottom_color);
-    kq.shaders.gradient.setUniformMat4x4(kq.shaders.gradient_uniform_mvp, mvp);
+fn fillGradientMvp(reg: &Regicide, top_color: &const Vec4, bottom_color: &const Vec4, mvp: &const Mat4x4) {
+    reg.shaders.gradient.bind();
+    reg.shaders.gradient.setUniformVec4(reg.shaders.gradient_uniform_color_top, top_color);
+    reg.shaders.gradient.setUniformVec4(reg.shaders.gradient_uniform_color_bottom, bottom_color);
+    reg.shaders.gradient.setUniformMat4x4(reg.shaders.gradient_uniform_mvp, mvp);
 
-    c.glBindBuffer(c.GL_ARRAY_BUFFER, kq.static_geometry.rect_2d_vertex_buffer);
-    c.glEnableVertexAttribArray(c.GLuint(kq.shaders.gradient_attrib_position));
-    c.glVertexAttribPointer(c.GLuint(kq.shaders.gradient_attrib_position), 3, c.GL_FLOAT, c.GL_FALSE, 0, null);
+    c.glBindBuffer(c.GL_ARRAY_BUFFER, reg.static_geometry.rect_2d_vertex_buffer);
+    c.glEnableVertexAttribArray(c.GLuint(reg.shaders.gradient_attrib_position));
+    c.glVertexAttribPointer(c.GLuint(reg.shaders.gradient_attrib_position), 3, c.GL_FLOAT, c.GL_FALSE, 0, null);
 
     c.glDrawArrays(c.GL_TRIANGLE_STRIP, 0, 4);
 }
 
-fn fillGradient(kq: &KillerQueen, top_color: &const Vec4, bottom_color: &const Vec4,
+fn fillGradient(reg: &Regicide, top_color: &const Vec4, bottom_color: &const Vec4,
     x: f32, y: f32, w: f32, h: f32)
 {
     const model = math3d.mat4x4_identity.translate(x, y, 0.0).scale(w, h, 0.0);
-    const mvp = kq.projection.mult(model);
-    fillGradientMvp(kq, top_color, bottom_color, &mvp)
+    const mvp = reg.projection.mult(model);
+    fillGradientMvp(reg, top_color, bottom_color, &mvp)
 }
 
-fn fillRectWrap(kq: &KillerQueen, color: &const Vec4, x: f32, y: f32, w: f32, h: f32) {
-    fillRect(kq, color, x, y, w, h);
-    if (x + w >= kq.size.x()) {
-        fillRect(kq, color, x - kq.size.x(), y, w, h);
+fn fillRectWrap(reg: &Regicide, color: &const Vec4, x: f32, y: f32, w: f32, h: f32) {
+    fillRect(reg, color, x, y, w, h);
+    if (x + w >= reg.size.x()) {
+        fillRect(reg, color, x - reg.size.x(), y, w, h);
     }
-    if (y + h >= kq.size.y()) {
-        fillRect(kq, color, x, y - kq.size.y(), w, h);
+    if (y + h >= reg.size.y()) {
+        fillRect(reg, color, x, y - reg.size.y(), w, h);
     }
 }
 
-fn fillRect(kq: &KillerQueen, color: &const Vec4, x: f32, y: f32, w: f32, h: f32) {
-    fillGradient(kq, color, color, x, y, w, h)
+fn fillRect(reg: &Regicide, color: &const Vec4, x: f32, y: f32, w: f32, h: f32) {
+    fillGradient(reg, color, color, x, y, w, h)
 }
 
-fn fillRectMvp(kq: &KillerQueen, color: &const Vec4, mvp: &const Mat4x4) {
-    fillGradientMvp(kq, color, color, mvp)
+fn fillRectMvp(reg: &Regicide, color: &const Vec4, mvp: &const Mat4x4) {
+    fillGradientMvp(reg, color, color, mvp)
 }
 
-fn drawPillShape(kq: &KillerQueen, color: &const Vec4, pill_shape: &const PillShape) {
-    fillRectWrap(kq, color,
+fn drawPillShape(reg: &Regicide, color: &const Vec4, pill_shape: &const PillShape) {
+    fillRectWrap(reg, color,
         pill_shape.center.x() - pill_shape.edge_dist.x(),
         pill_shape.center.y() - pill_shape.edge_dist.y(),
         pill_shape.edge_dist.x() * 2,
         pill_shape.edge_dist.y() * 2);
 }
 
-fn resetProjection(kq: &KillerQueen) {
-    kq.projection = math3d.mat4x4_ortho(0.0, kq.size.x(), kq.size.y(), 0.0);
+fn resetProjection(reg: &Regicide) {
+    reg.projection = math3d.mat4x4_ortho(0.0, reg.size.x(), reg.size.y(), 0.0);
 }
 
-fn resetMap(kq: &KillerQueen, map: &const KqMap) {
-    kq.cur_map = *map;
+fn resetMap(reg: &Regicide, map: &const KqMap) {
+    reg.cur_map = *map;
 
-    for (kq.players) |*player| {
+    for (reg.players) |*player| {
         *player = Player {
             .alive = true,
             .kind = PlayerKind.Queen,
