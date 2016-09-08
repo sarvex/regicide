@@ -9,12 +9,27 @@ const Vec4 = math3d.Vec4;
 const Mat4x4 = math3d.Mat4x4;
 const static_geometry = @import("static_geometry.zig");
 
+struct PillShape {
+    center: Vec2,
+    /// distance from center to left/right and top/bottom of rectangle
+    edge_dist: Vec2,
+}
+
 struct Platform {
-    left: f32,
-    top: f32,
-    width: f32,
-    height: f32,
-    corner_radius: f32,
+    hitbox: PillShape,
+
+    fn init(left: f32, top: f32, width: f32, height: f32) -> Platform {
+        Platform {
+            .hitbox = PillShape {
+                .center = Vec2 {
+                    .data = []f32{left + width / 2.0, top + height / 2.0},
+                },
+                .edge_dist = Vec2 {
+                    .data = []f32{width / 2.0, height / 2.0},
+                },
+            },
+        }
+    }
 }
 
 struct KqMap {
@@ -24,7 +39,6 @@ struct KqMap {
     platforms: []Platform,
 }
 
-const default_corner_radius = 4.0;
 const debug_draw_platforms = !@compileVar("is_release");
 const debug_platform_color = math3d.vec4(96.0/255.0, 71.0/255.0, 0.0/255.0, 1.0);
 const debug_player_color = math3d.vec4(249.0/255.0, 178.0/255.0, 102.0/255.0, 1.0);
@@ -46,9 +60,8 @@ const inputs_reset = []bool{false} ** @memberCount(Input);
 
 struct Player {
     kind: PlayerKind,
-    pos: Vec2,
     vel: Vec2,
-    size: Vec2,
+    hitbox: PillShape,
     alive: bool,
     inputs: [@memberCount(Input)]bool,
     inputs_last: [@memberCount(Input)]bool,
@@ -86,34 +99,10 @@ const day_map = KqMap {
     .bg_top_color = math3d.vec4(16.0/255.0, 149.0/255.0, 220.0/255.0, 1.0),
     .bg_bottom_color = math3d.vec4(97.0/255.0, 198.0/255.0, 217.0/255.0, 1.0),
     .platforms = []Platform {
-        Platform {
-            .left = 100.0,
-            .top = 100.0,
-            .width = 500.0,
-            .height = 20.0,
-            .corner_radius = default_corner_radius,
-        },
-        Platform {
-            .left = 900.0,
-            .top = 100.0,
-            .width = 500.0,
-            .height = 20.0,
-            .corner_radius = default_corner_radius,
-        },
-        Platform {
-            .left = 100.0,
-            .top = 400.0,
-            .width = 500.0,
-            .height = 20.0,
-            .corner_radius = default_corner_radius,
-        },
-        Platform {
-            .left = 900.0,
-            .top = 400.0,
-            .width = 500.0,
-            .height = 20.0,
-            .corner_radius = default_corner_radius,
-        },
+        Platform.init(100.0, 100.0, 500.0, 20.0),
+        Platform.init(900.0, 100.0, 500.0, 20.0),
+        Platform.init(100.0, 400.0, 500.0, 20.0),
+        Platform.init(900.0, 400.0, 500.0, 20.0),
     },
 };
 
@@ -121,8 +110,7 @@ struct KillerQueen {
     window: &c.GLFWwindow,
     framebuffer_width: c_int,
     framebuffer_height: c_int,
-    width: f32,
-    height: f32,
+    size: Vec2,
     shaders: all_shaders.AllShaders,
     projection: Mat4x4,
     static_geometry: static_geometry.StaticGeometry,
@@ -191,8 +179,7 @@ export fn main(argc: c_int, argv: &&u8) -> c_int {
 
     const kq = &kq_state;
     c.glfwGetFramebufferSize(window, &kq.framebuffer_width, &kq.framebuffer_height);
-    kq.width = f32(kq.framebuffer_width);
-    kq.height = f32(kq.framebuffer_height);
+    kq.size = math3d.vec2(f32(kq.framebuffer_width), f32(kq.framebuffer_height));
 
     c.glClearColor(0.0, 0.0, 0.0, 1.0);
     c.glEnable(c.GL_BLEND);
@@ -229,9 +216,7 @@ export fn main(argc: c_int, argv: &&u8) -> c_int {
 
 fn nextFrame(kq: &KillerQueen) {
     for (kq.players) |*player| {
-        player.pos.data[0] = euclideanMod(player.pos.data[0] + player.vel.data[0], kq.width);
-        player.pos.data[1] = euclideanMod(player.pos.data[1] + player.vel.data[1], kq.height);
-
+        player.hitbox.center = euclideanModVec2(player.hitbox.center.plus(player.vel), kq.size);
 
         player.vel.data[1] += gravity_accel * spf;
 
@@ -256,16 +241,16 @@ fn nextFrame(kq: &KillerQueen) {
 }
 
 fn drawState(kq: &KillerQueen) {
-    fillGradient(kq, &kq.cur_map.bg_top_color, &kq.cur_map.bg_bottom_color, 0, 0, kq.width, kq.height);
+    fillGradient(kq, &kq.cur_map.bg_top_color, &kq.cur_map.bg_bottom_color, 0, 0, kq.size.x(), kq.size.y());
 
     if (debug_draw_platforms) {
         for (kq.cur_map.platforms) |*platform| {
-            fillRect(kq, &debug_platform_color, platform.left, platform.top, platform.width, platform.height);
+            drawPillShape(kq, &debug_platform_color, &platform.hitbox);
         }
     }
 
     for (kq.players) |*player| {
-        fillRectWrap(kq, &debug_player_color, player.pos.x(), player.pos.y(), player.size.x(), player.size.y());
+        drawPillShape(kq, &debug_player_color, &player.hitbox);
     }
 }
 
@@ -292,11 +277,11 @@ fn fillGradient(kq: &KillerQueen, top_color: &const Vec4, bottom_color: &const V
 
 fn fillRectWrap(kq: &KillerQueen, color: &const Vec4, x: f32, y: f32, w: f32, h: f32) {
     fillRect(kq, color, x, y, w, h);
-    if (x + w >= kq.width) {
-        fillRect(kq, color, x - kq.width, y, w, h);
+    if (x + w >= kq.size.x()) {
+        fillRect(kq, color, x - kq.size.x(), y, w, h);
     }
-    if (y + h >= kq.height) {
-        fillRect(kq, color, x, y - kq.height, w, h);
+    if (y + h >= kq.size.y()) {
+        fillRect(kq, color, x, y - kq.size.y(), w, h);
     }
 }
 
@@ -308,8 +293,16 @@ fn fillRectMvp(kq: &KillerQueen, color: &const Vec4, mvp: &const Mat4x4) {
     fillGradientMvp(kq, color, color, mvp)
 }
 
+fn drawPillShape(kq: &KillerQueen, color: &const Vec4, pill_shape: &const PillShape) {
+    fillRectWrap(kq, color,
+        pill_shape.center.x() - pill_shape.edge_dist.x(),
+        pill_shape.center.y() - pill_shape.edge_dist.y(),
+        pill_shape.edge_dist.x() * 2,
+        pill_shape.edge_dist.y() * 2);
+}
+
 fn resetProjection(kq: &KillerQueen) {
-    kq.projection = math3d.mat4x4_ortho(0.0, kq.width, kq.height, 0.0);
+    kq.projection = math3d.mat4x4_ortho(0.0, kq.size.x(), kq.size.y(), 0.0);
 }
 
 fn resetMap(kq: &KillerQueen, map: &const KqMap) {
@@ -319,9 +312,11 @@ fn resetMap(kq: &KillerQueen, map: &const KqMap) {
         *player = Player {
             .alive = true,
             .kind = PlayerKind.Queen,
-            .pos = math3d.vec2(200.0, 200.0),
+            .hitbox = PillShape {
+                .center = math3d.vec2(200.0, 200.0),
+                .edge_dist = player_kind_sizes[usize(player.kind)],
+            },
             .vel = math3d.vec2(0.0, 0.0),
-            .size = player_kind_sizes[usize(player.kind)],
             .inputs = inputs_reset,
             .inputs_last = inputs_reset,
         };
@@ -342,4 +337,8 @@ fn euclideanMod(x: f32, base: f32) -> f32 {
     } else {
         x % base
     }
+}
+
+fn euclideanModVec2(a: Vec2, b: Vec2) -> Vec2 {
+    math3d.vec2(euclideanMod(a.x(), b.x()), euclideanMod(a.y(), b.y()))
 }

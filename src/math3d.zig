@@ -158,7 +158,7 @@ pub struct Vec2 {
     pub fn setX(self: &Vec2, value: f32) { self.data[0] = value; }
     pub fn setY(self: &Vec2, value: f32) { self.data[1] = value; }
 
-    pub fn add(v: Vec2, other: Vec2) -> Vec2 {
+    pub fn plus(v: Vec2, other: Vec2) -> Vec2 {
         Vec2 {
             .data = []f32 {
                 v.data[0] + other.data[0],
