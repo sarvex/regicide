@@ -119,7 +119,7 @@ struct Regicide {
 }
 
 extern fn errorCallback(err: c_int, description: ?&const u8) {
-    c.fprintf(c.stderr, c"Error: %s\n", description);
+    c.printf(c"Error: %s\n", description);
     c.abort();
 }
 
@@ -143,7 +143,7 @@ export fn main(argc: c_int, argv: &&u8) -> c_int {
     c.glfwSetErrorCallback(errorCallback);
 
     if (c.glfwInit() == c.GL_FALSE) {
-        c.fprintf(c.stderr, c"GLFW init failure\n");
+        c.printf(c"GLFW init failure\n");
         c.abort();
     }
     defer c.glfwTerminate();
@@ -161,7 +161,7 @@ export fn main(argc: c_int, argv: &&u8) -> c_int {
     const window_width = 1920;
     const window_height = 1080;
     const window = c.glfwCreateWindow(window_width, window_height, c"Regicide", null, null) ?? {
-        c.fprintf(c.stderr, c"unable to create window\n");
+        c.printf(c"unable to create window\n");
         c.abort();
     };
     defer c.glfwDestroyWindow(window);

@@ -6,7 +6,7 @@ pub fn assertNoError() {
     if (!@compileVar("is_release")) {
         const err = c.glGetError();
         if (err != c.GL_NO_ERROR) {
-            c.fprintf(c.stderr, c"GL error: %d\n", err);
+            c.printf(c"GL error: %d\n", err);
             c.abort();
         }
     }
